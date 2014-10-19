@@ -3,6 +3,8 @@
 #include <fcntl.h>
 #include <unistd.h>
 #include <stdlib.h>
+#include <assert.h>
+#include <stdint.h>
 
 #define CMD_SET_SCALING_11 0xe6
 #define CMD_SET_RESOLUTION 0xe8
@@ -98,10 +100,85 @@ void send_status_request(int file)
 	printf("\n");
 }
 
-int dump_packets(int file, int length)
+int clicked = 0;
+struct finger_state
+{
+	int x;
+	int y;
+	int weight;
+	int active;
+};
+struct finger_state fingers[5] = {
+	{0, 0, 0, 0},
+	{0, 0, 0, 0},
+	{0, 0, 0, 0},
+	{0, 0, 0, 0},
+	{0, 0, 0, 0}
+};
+
+void print_state(void)
 {
 	int i;
+	printf(" (");
+	for (i = 0; i < 5; i++) {
+		/*printf("%d ", fingers[i].active);*/
+		if (fingers[i].weight > 0 && fingers[i].active > 0) {
+			printf("%5d/%5d ", fingers[i].x, fingers[i].y);
+		} else {
+			printf("            ");
+		}
+	}
+	if (clicked) {
+		printf("click ");
+	}
+	printf(")");
+}
+
+void parse_packet(unsigned char *data)
+{
+	int i;
+	unsigned char type = data[0] & 0xf;
+	if (type == 0x3) {
+		int active = data[1] & 0x1f;
+		printf(" act");
+		for (i = 0; i < 5; i++) {
+			fingers[i].active = active & 0x1;
+			if (!fingers[i].active) {
+				fingers[i].weight = 0;
+			}
+			active >>= 1;
+		}
+	} else if (type == 0x6) {
+		int finger = (data[1] >> 4) - 1;
+		printf(" abs");
+		fingers[finger].weight = data[5];
+		fingers[finger].x = ((data[1] << 8) | data[2]) & 0xfff;
+		fingers[finger].y = (data[3] << 8) | data[4];
+		clicked = (data[0] >> 4) & 1;
+	} else if (type == 0x9) {
+		printf(" rel");
+		int finger1 = ((data[0] >> 4) & 0x7) - 1;
+		fingers[finger1].x += (int8_t)data[1];
+		fingers[finger1].y += (int8_t)data[2];
+		int finger2 = ((data[3] >> 4) & 0x7) - 1;
+		if (finger2 != -1) {
+			fingers[finger2].x += (int8_t)data[1];
+			fingers[finger2].y += (int8_t)data[2];
+		}
+		clicked = data[0] >> 7;
+	} else {
+		printf(" UNKNOWN PACKET");
+	}
+	print_state();
+}
+
+int dump_packets(int file, int length)
+{
+	unsigned char packet[6];
+	int i;
 	int received;
+
+	assert(length <= 6);
 
 	while (1) {
 		printf("packet:");
@@ -110,14 +187,16 @@ int dump_packets(int file, int length)
 			if (received < 0) {
 				return received;
 			}
+			packet[i] = received;
 			printf(" %02x", received);
+		}
+		if (length == 6) {
+			parse_packet(packet);
 		}
 		printf("\n");
 	}
 	return 0;
 }
-
-
 
 int main(int argc, char **argv)
 {
