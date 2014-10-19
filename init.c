@@ -208,7 +208,8 @@ int main(int argc, char **argv)
 		printf("Error: Invalid parameters.\n");
 		printf("Usage: %s <path-to-serio_raw-device>\n", argv[0]);
 		printf("For hints on how to enable serio_raw, see "
-				"http://people.canonical.com/~sforshee/touchpad/mouse-to-serio.sh.\n");
+				"http://people.canonical.com/~sforshee/touchpad/mouse-to-serio.sh.\n"
+				"Usage example: %s /dev/serio_raw0\n", argv[0]);
 		return -1;
 	}
 
