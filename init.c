@@ -162,8 +162,8 @@ void parse_packet(unsigned char *data)
 		fingers[finger1].y += (int8_t)data[2];
 		int finger2 = ((data[3] >> 4) & 0x7) - 1;
 		if (finger2 != -1) {
-			fingers[finger2].x += (int8_t)data[1];
-			fingers[finger2].y += (int8_t)data[2];
+			fingers[finger2].x += (int8_t)data[4];
+			fingers[finger2].y += (int8_t)data[5];
 		}
 		clicked = data[0] >> 7;
 	} else {
